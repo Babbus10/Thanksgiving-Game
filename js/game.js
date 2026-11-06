@@ -332,7 +332,7 @@
   function renderTitle() {
     return '<section class="screen"><p class="kicker">Maple Street School</p><h1>Thanksgiving Escape</h1>' +
       '<p class="lede">JMa dropped six kids at an empty school. Principal.exe locked the doors. Dinner is waiting at home.</p>' +
-      "<ul class=\"help-list\"><li>Pick looks from youngest to oldest.</li><li>The banner shows whose turn it is to investigate.</li><li>Everyone can talk. That kid submits the answer.</li><li>A wrong answer gets a hint. Try again.</li></ul>" +
+      "<ul class=\"help-list\"><li>Pick looks from youngest to oldest.</li><li>Gold outlines are things to investigate. The kid on the banner walks over.</li><li>Some outlines are just silly. Real puzzles still fill the screen.</li><li>A wrong answer gets a hint. Try again.</li></ul>" +
       '<div class="row"><button type="button" class="btn btn-primary" data-act="start">Start</button><button type="button" class="btn" data-act="fullscreen">Full screen</button></div></section>';
   }
 
@@ -383,9 +383,9 @@
   }
 
   function renderPlay() {
-    return '<div class="shell">' + hud() + '<div class="stage"><div class="room"><div class="room-art">' + scenery(state.room) +
+    return '<div class="shell">' + hud() + '<div class="stage"><div class="room"><div class="room-art photo" style="background-image:url(\'assets/rooms/' + state.room + '.jpg\')">' +
       '<div class="room-caption"><h1>' + escapeHtml(roomName(state.room)) + "</h1><p>" + escapeHtml(roomBlurb()) + "</p></div>" +
-      '<div class="hotspot-row">' + hotspots().map(hotspotButton).join("") + "</div></div>" + party() + "</div></div></div>";
+      hotspots().map(spotButton).join("") + kidTokens() + "</div></div></div></div>";
   }
 
   function roomBlurb() {
@@ -402,9 +402,32 @@
     return blurbs[state.room] || "";
   }
 
-  function hotspotButton(spot) {
-    return '<button type="button" class="hotspot' + (spot.attention ? " attention" : "") + '" data-act="' + spot.act + '" ' + (spot.attrs || "") + ">" +
-      miniIcon(spot.icon) + "<strong>" + spot.title + "</strong><em>" + spot.detail + "</em></button>";
+  function spotButton(spot) {
+    var foot = spot.y + spot.h;
+    var kind = spot.act === "decoy" ? " decoy" : " real";
+    return '<button type="button" class="spot' + kind + (spot.glow ? " glow" : "") + '" style="left:' + spot.x + "%;top:" + spot.y + "%;width:" + spot.w + "%;height:" + spot.h + '%" data-x="' +
+      (spot.x + spot.w / 2).toFixed(1) + '" data-y="' + Math.min(foot, 94).toFixed(1) + '" data-act="' + spot.act + '" ' + (spot.attrs || "") + "><span>" + spot.title + "</span></button>";
+  }
+
+  function homeFeet(n, count) {
+    var span = Math.min(62, Math.max(18, (count - 1) * 11));
+    var start = 50 - span / 2;
+    var x = count <= 1 ? 50 : start + span * n / (count - 1);
+    return { x: x, y: 90 };
+  }
+
+  function kidTokens() {
+    var present = [];
+    state.kids.forEach(function (k, i) {
+      if (state.room !== "art" || i < 3) present.push(i);
+    });
+    return present.map(function (i, n) {
+      var k = state.kids[i];
+      var saved = state.feet && state.feet[state.room] && state.feet[state.room][i];
+      var pos = saved || homeFeet(n, present.length);
+      return '<div class="kid-token' + (i === state.turn ? " turn" : "") + '" data-kid="' + i + '" style="left:' + pos.x + "%;top:" + pos.y + '%">' +
+        avatarSvg(k.look, 86) + '<div class="avatar-name">' + escapeHtml(k.name) + "</div></div>";
+    }).join("");
   }
 
   function cafeteriaKnown() {
@@ -419,86 +442,85 @@
     return false;
   }
 
+  function joke(text) {
+    return 'data-joke="' + escapeHtml(text) + '"';
+  }
+
   function hotspots() {
     if (state.room === "lobby") {
       return [
-        { act: "open-puzzle", attrs: 'data-puzzle="printer"', icon: "printer", title: "Visitor desk", detail: hasPass("hallway") ? "Print a pass" : "Sign in and print", attention: printerAttention() },
-        { act: "try-hallway", icon: "door", title: "Hallway door", detail: hasPass("hallway") ? "White pass ready" : "PASS NEEDED", attention: hasPass("hallway") }
+        { act: "open-puzzle", attrs: 'data-puzzle="printer"', title: "Printer", x: 10, y: 26, w: 20, h: 16, glow: printerAttention() },
+        { act: "try-hallway", title: hasPass("hallway") ? "Hallway" : "PASS NEEDED", x: 72, y: 8, w: 24, h: 52, glow: hasPass("hallway") },
+        { act: "decoy", attrs: joke("The plant is thirsty. It does not know any door codes."), title: "Plant", x: 33, y: 20, w: 10, h: 30 },
+        { act: "decoy", attrs: joke("Last month's pizza sale. Nothing about Thanksgiving."), title: "Bulletin board", x: 47, y: 12, w: 14, h: 18 },
+        { act: "decoy", attrs: joke("Cinnamon leaves. Pretty, and not a password."), title: "Flowers", x: 54, y: 34, w: 9, h: 22 }
       ];
     }
     if (state.room === "hallway") {
       var doors = [
-        { act: "try-art", icon: "door", title: "Art room", detail: "Younger three", attention: state.turn < 3 && !state.flags.orange },
-        { act: "goto", attrs: 'data-room="math"', icon: "door", title: "Math room", detail: "Open", attention: !state.flags.word || !state.flags.graph || !state.flags.clocks },
-        { act: "goto", attrs: 'data-room="lobby"', icon: "printer", title: "Lobby", detail: "Pass printer", attention: printerAttention() }
+        { act: "try-art", title: "Art room", x: 1, y: 8, w: 15, h: 64, glow: state.turn < 3 && !state.flags.orange },
+        { act: "goto", attrs: 'data-room="math"', title: "Math room", x: 16, y: 16, w: 12, h: 50, glow: !state.flags.word || !state.flags.graph || !state.flags.clocks },
+        { act: "goto", attrs: 'data-room="lobby"', title: "Lobby", x: 80, y: 3, w: 16, h: 12, glow: printerAttention() },
+        { act: "decoy", attrs: joke("Every locker is empty. Somebody already left for dinner."), title: "Lockers", x: 68, y: 28, w: 24, h: 36 },
+        { act: "decoy", attrs: joke("Cold water. The fountain does not print passes."), title: "Fountain", x: 74, y: 58, w: 12, h: 16 }
       ];
-      if (cafeteriaKnown()) {
-        doors.splice(2, 0, { act: "try-door", attrs: 'data-room="cafeteria" data-pass="cafeteria"', icon: "plate", title: "Cafeteria", detail: hasPass("cafeteria") ? "Plate pass" : "PASS NEEDED", attention: hasPass("cafeteria") });
-      }
-      if (state.flags.trays) {
-        doors.splice(doors.length - 1, 0, { act: "try-door", attrs: 'data-room="gym" data-pass="gym"', icon: "whistle", title: "Gym", detail: hasPass("gym") ? "Whistle pass" : "PASS NEEDED", attention: hasPass("gym") });
-      }
-      if (state.flags.seat) {
-        doors.splice(doors.length - 1, 0, { act: "try-door", attrs: 'data-room="office" data-pass="office"', icon: "computer", title: "Office", detail: hasPass("office") ? "Computer pass" : "PASS NEEDED", attention: hasPass("office") });
-      }
+      if (cafeteriaKnown()) doors.push({ act: "try-door", attrs: 'data-room="cafeteria" data-pass="cafeteria"', title: "Cafeteria", x: 28, y: 22, w: 11, h: 42, glow: hasPass("cafeteria") });
+      if (state.flags.trays) doors.push({ act: "try-door", attrs: 'data-room="gym" data-pass="gym"', title: "Gym", x: 38, y: 30, w: 10, h: 32, glow: hasPass("gym") });
+      if (state.flags.seat) doors.push({ act: "try-door", attrs: 'data-room="office" data-pass="office"', title: "Office", x: 47, y: 36, w: 10, h: 26, glow: hasPass("office") });
       return doors;
     }
     if (state.room === "art") {
       var spots = [
-        { act: "open-puzzle", attrs: 'data-puzzle="sketch"', icon: "door", title: "Sketch", detail: state.flags.colorNumber ? "Finished" : "Color by number" },
-        { act: "open-puzzle", attrs: 'data-puzzle="simon"', icon: "door", title: "Palette", detail: state.flags.simon ? "Finished" : "Remember the colors" },
-        { act: "open-puzzle", attrs: 'data-puzzle="computer"', icon: "computer", title: "Art computer", detail: state.flags.orange ? "Orange saved" : "Supply check", attention: hasItem("crayon") && hasItem("brush") && !state.flags.orange },
-        { act: "goto", attrs: 'data-room="hallway"', icon: "door", title: "Hallway", detail: "Back" }
+        { act: "open-puzzle", attrs: 'data-puzzle="sketch"', title: "Sketch", x: 1, y: 8, w: 18, h: 58 },
+        { act: "open-puzzle", attrs: 'data-puzzle="simon"', title: "Palette", x: 60, y: 54, w: 22, h: 32 },
+        { act: "open-puzzle", attrs: 'data-puzzle="computer"', title: "Art computer", x: 40, y: 36, w: 18, h: 22, glow: hasItem("crayon") && hasItem("brush") && !state.flags.orange },
+        { act: "goto", attrs: 'data-room="hallway"', title: "Hallway", x: 80, y: 3, w: 16, h: 12 },
+        { act: "decoy", attrs: joke("So many crayons. The missing red one is not in this cubby."), title: "Cubbies", x: 30, y: 42, w: 10, h: 16 },
+        { act: "decoy", attrs: joke("The blue chair squeaks a tiny song. It is not a clue."), title: "Chair", x: 46, y: 52, w: 8, h: 16 }
       ];
-      if (state.flags.colorNumber && !state.flags.crayon) {
-        spots.splice(3, 0, { act: "pickup", attrs: 'data-item="crayon"', icon: "door", title: "Drying rack", detail: "Something rolled under it", attention: true });
-      }
-      if (state.flags.simon && !state.flags.brush) {
-        spots.splice(3, 0, { act: "pickup", attrs: 'data-item="brush"', icon: "door", title: "Window sill", detail: "Yellow paint smudges", attention: true });
-      }
+      if (state.flags.colorNumber && !state.flags.crayon) spots.push({ act: "pickup", attrs: 'data-item="crayon"', title: "Drying rack", x: 22, y: 16, w: 10, h: 40, glow: true });
+      if (state.flags.simon && !state.flags.brush) spots.push({ act: "pickup", attrs: 'data-item="brush"', title: "Window sill", x: 74, y: 28, w: 22, h: 16, glow: true });
       return spots;
     }
     if (state.room === "math") {
       return [
-        { act: "open-puzzle", attrs: 'data-puzzle="clocks"', icon: "door", title: "Three clocks", detail: state.flags.clocks ? "Settled" : "No numbers" },
-        { act: "examine-clock", icon: "door", title: "Classroom clock", detail: state.flags.readClock ? "4:15" : "Below the others", attention: state.flags.clocks && !state.flags.readClock },
-        { act: "open-puzzle", attrs: 'data-puzzle="word"', icon: "door", title: "Chalkboard", detail: state.flags.word ? "Solved" : "Word problem" },
-        { act: "open-puzzle", attrs: 'data-puzzle="graph"', icon: "door", title: "Food graph", detail: state.flags.graph ? "Solved" : "Sweet sides" },
-        { act: "goto", attrs: 'data-room="hallway"', icon: "door", title: "Hallway", detail: "Back" }
+        { act: "open-puzzle", attrs: 'data-puzzle="clocks"', title: "Three clocks", x: 22, y: 1, w: 36, h: 12 },
+        { act: "examine-clock", title: "Classroom clock", x: 32, y: 40, w: 14, h: 16, glow: state.flags.clocks && !state.flags.readClock },
+        { act: "open-puzzle", attrs: 'data-puzzle="word"', title: "Chalkboard", x: 6, y: 16, w: 58, h: 24 },
+        { act: "open-puzzle", attrs: 'data-puzzle="graph"', title: "Food graph", x: 70, y: 16, w: 24, h: 30 },
+        { act: "goto", attrs: 'data-room="hallway"', title: "Hallway", x: 80, y: 3, w: 16, h: 12 },
+        { act: "decoy", attrs: joke("A desk has a doodle of a turkey. The turkey is not the answer."), title: "Desks", x: 8, y: 62, w: 22, h: 18 },
+        { act: "decoy", attrs: joke("Math books. Heavy, and not today's clock."), title: "Bookshelf", x: 66, y: 46, w: 12, h: 18 }
       ];
     }
     if (state.room === "cafeteria") {
       return [
-        { act: "open-puzzle", attrs: 'data-puzzle="menu"', icon: "plate", title: "Menu board", detail: state.flags.menu ? "Scrap 4" : "Allergies" },
-        { act: "open-puzzle", attrs: 'data-puzzle="register"', icon: "printer", title: "Cash register", detail: state.flags.register ? "Scrap 50" : "Wrong prices" },
-        { act: "open-puzzle", attrs: 'data-puzzle="trays"', icon: "door", title: "Tray stack", detail: state.flags.trays ? "Gym card" : "Size and weight" },
-        { act: "open-puzzle", attrs: 'data-puzzle="vending"', icon: "door", title: "Vending machine", detail: state.flags.vending ? "Scrap 12" : "Needs scraps" },
-        { act: "goto", attrs: 'data-room="hallway"', icon: "door", title: "Hallway", detail: "Back" }
+        { act: "open-puzzle", attrs: 'data-puzzle="menu"', title: "Menu board", x: 1, y: 1, w: 26, h: 13 },
+        { act: "open-puzzle", attrs: 'data-puzzle="register"', title: "Register", x: 16, y: 30, w: 14, h: 16 },
+        { act: "open-puzzle", attrs: 'data-puzzle="trays"', title: "Tray stacks", x: 32, y: 26, w: 14, h: 28 },
+        { act: "open-puzzle", attrs: 'data-puzzle="vending"', title: "Vending machine", x: 82, y: 14, w: 16, h: 44 },
+        { act: "goto", attrs: 'data-room="hallway"', title: "Hallway", x: 58, y: 3, w: 16, h: 12 },
+        { act: "decoy", attrs: joke("The potatoes look real. The price on the register does not."), title: "Serving line", x: 2, y: 36, w: 16, h: 18 },
+        { act: "decoy", attrs: joke("A napkin is folded into a turkey. It will not open a door."), title: "Lunch tables", x: 52, y: 38, w: 22, h: 16 }
       ];
     }
     if (state.room === "gym") {
       return [
-        { act: "open-puzzle", attrs: 'data-puzzle="score"', icon: "door", title: "Scoreboard", detail: state.flags.score ? "27–21" : "Fix the final score" },
-        { act: "open-puzzle", attrs: 'data-puzzle="hoop"', icon: "whistle", title: "Basketball hoop", detail: state.flags.hoop ? "Scrap 50" : "Pick the arc" },
-        { act: "open-puzzle", attrs: 'data-puzzle="seat"', icon: "door", title: "Bleacher seat", detail: state.flags.seat ? "Expired pass" : "Seat cipher" },
-        { act: "goto", attrs: 'data-room="hallway"', icon: "door", title: "Hallway", detail: "Back" }
+        { act: "open-puzzle", attrs: 'data-puzzle="score"', title: "Scoreboard", x: 3, y: 16, w: 16, h: 18 },
+        { act: "open-puzzle", attrs: 'data-puzzle="hoop"', title: "Hoop", x: 74, y: 1, w: 24, h: 34 },
+        { act: "open-puzzle", attrs: 'data-puzzle="seat"', title: "Bleachers", x: 26, y: 40, w: 44, h: 24 },
+        { act: "goto", attrs: 'data-room="hallway"', title: "Hallway", x: 5, y: 50, w: 14, h: 22 },
+        { act: "decoy", attrs: joke("Bright Thanksgiving sky. The scoreboard is still dark."), title: "Windows", x: 36, y: 4, w: 28, h: 12 },
+        { act: "decoy", attrs: joke("The center circle is shiny. It does not know the final score."), title: "Court", x: 18, y: 68, w: 22, h: 14 }
       ];
     }
     return [
-      { act: "open-puzzle", attrs: 'data-puzzle="login"', icon: "computer", title: "Principal computer", detail: "Log in", attention: true },
-      { act: "goto", attrs: 'data-room="hallway"', icon: "door", title: "Hallway", detail: "Back" }
+      { act: "open-puzzle", attrs: 'data-puzzle="login"', title: "Computer", x: 40, y: 20, w: 22, h: 26, glow: true },
+      { act: "goto", attrs: 'data-room="hallway"', title: "Hallway", x: 1, y: 62, w: 14, h: 14 },
+      { act: "decoy", attrs: joke("The lamp is on. The principal is not in the chair."), title: "Lamp", x: 26, y: 24, w: 10, h: 24 },
+      { act: "decoy", attrs: joke("Nice frames. None of them is the login."), title: "Certificates", x: 30, y: 2, w: 32, h: 14 },
+      { act: "decoy", attrs: joke("Orange trees outside. The answer is on the computer, not in the yard."), title: "Window", x: 74, y: 6, w: 24, h: 30 }
     ];
-  }
-
-  function party() {
-    var present = state.room === "art" ? state.kids.slice(0, 3) : state.kids;
-    var note = state.room === "art" ? "Younger three in this room" : "All six kids";
-    return '<div class="party"><div class="party-note">' + note + "</div>" + present.map(function (k) {
-      var index = state.kids.indexOf(k);
-      return '<div class="avatar-card' + (index === state.turn ? " turn" : "") + '">' + avatarSvg(k.look, 74) +
-        '<div class="avatar-name">' + escapeHtml(k.name) + "</div>" +
-        '<div class="age-tag">' + (index === state.turn ? "Turn" : ageLabel(index)) + "</div></div>";
-    }).join("") + "</div>";
   }
 
   function puzzleShell(title, body, allowLeave, foot) {
@@ -641,8 +663,8 @@
   function puzzleComputer() {
     var haveCrayon = hasItem("crayon");
     var haveBrush = hasItem("brush");
-    return puzzleShell("Art computer", "<p>ART SUPPLY CHECK</p><ul class=\"help-list\"><li>Red crayon: " + (haveCrayon ? "in the basket" : "missing") + "</li><li>Yellow paintbrush: " + (haveBrush ? "in the basket" : "missing") + "</li></ul>" +
-      "<p>Return both. The computer will name the cafeteria ink.</p>" + hintBox(state.puzzleState.hint) +
+    return puzzleShell("Art computer", '<div class="terminal"><p class="kicker">ART SUPPLY CHECK</p><p>Red crayon: ' + (haveCrayon ? "in the basket" : "MISSING") + "</p><p>Yellow paintbrush: " + (haveBrush ? "in the basket" : "MISSING") + "</p><p>Return both. The screen will name the cafeteria ink.</p></div>" +
+      hintBox(state.puzzleState.hint) +
       '<button type="button" class="btn btn-primary" data-act="return-supplies"' + (haveCrayon && haveBrush ? "" : " disabled") + ">Return red crayon and yellow brush</button>");
   }
 
@@ -686,7 +708,8 @@
       var tags = item.tags.map(function (tag) { return '<span class="tag">' + tag + "</span>"; }).join("");
       if (item.soldOut) tags += '<span class="sold">SOLD OUT</span>';
       var crossed = ps.crossed.indexOf(item.id) !== -1;
-      return '<button type="button" class="food-card' + (crossed ? " crossed" : "") + '" data-act="menu-tap" data-food="' + item.id + '"><div class="num">#' + item.n + " " + item.name + "</div><div>" + item.kind + "</div><div>" + tags + "</div></button>";
+      var plates = { turkey: "#c44912", pizza: "#f0b429", noodles: "#d97706", sweetpotato: "#ea580c", milk: "#f8fafc", juice: "#fb923c", muffin: "#a16207", mix: "#65a30d" };
+      return '<button type="button" class="food-card' + (crossed ? " crossed" : "") + '" data-act="menu-tap" data-food="' + item.id + '"><i class="plate" style="background:' + plates[item.id] + '"></i><div class="num">#' + item.n + " " + item.name + "</div><div>" + item.kind + "</div><div>" + tags + "</div></button>";
     }).join("");
     return puzzleShell("Menu board", "<p>Kids in line cannot eat dairy, nuts, or gluten. One dish is safe, for sale, and a side. Its menu number is a code scrap.</p><p><strong>" + steps[ps.phase - 1] + '</strong></p><div class="menu-grid">' + cards + "</div>" + hintBox(ps.hint) +
       '<button type="button" class="btn btn-primary" data-act="menu-check">Check this step</button>');
@@ -705,8 +728,7 @@
       return '<div class="coin-ctrl"><button type="button" class="btn" data-act="coin" data-coin="' + row[0] + '" data-dir="-1">−</button><strong>' + coins[row[0]] + " / " + row[2] + "</strong><button type=\"button\" class=\"btn\" data-act=\"coin\" data-coin=\"" + row[0] + '" data-dir="1">+</button><span>' + row[1] + "</span></div>";
     }).join("");
     var prices = L.PRICES.map(function (item) { return "<li>" + item.name + ": " + money(item.cents) + "</li>"; }).join("");
-    return puzzleShell("Cash register", "<p>Principal.exe planted a total of <strong>" + money(L.PLANTED_TOTAL) + "</strong>. Use the sticky-note prices. The kids pay with a " + money(L.PAYMENT) + " bill. Make the exact change.</p><ul class=\"help-list\">" + prices + "</ul>" +
-      '<p class="total-due">' + money(total) + "</p>" + controls + hintBox(ps.hint) +
+    return puzzleShell("Cash register", '<div class="register-layout"><div class="receipt"><p>Planted total</p><p class="total-due fake">' + money(L.PLANTED_TOTAL) + '</p><p>Sticky-note prices</p><ul class="help-list">' + prices + "</ul><p>They pay with " + money(L.PAYMENT) + '.</p></div><div><p class="total-due">' + money(total) + "</p>" + controls + "</div></div>" + hintBox(ps.hint) +
       '<button type="button" class="btn btn-primary" data-act="submit-change">Give this change</button>');
   }
 
@@ -733,8 +755,8 @@
 
   function puzzleVending() {
     var ps = state.puzzleState;
-    return puzzleShell("Vending machine", "<p>The keypad wants the menu scrap and the change scrap stuck together, menu number first.</p><p>A correct code drops a wrapper. The wrapper number is the menu scrap times 3.</p>" +
-      '<p><input id="vending-code" class="text-input" inputmode="numeric" data-keep="code" placeholder="Code" value="' + escapeHtml(ps.code || "") + '"></p>' + hintBox(ps.hint) +
+    return puzzleShell("Vending machine", '<div class="vending-face"><p>Keypad: menu scrap, then the change scrap, stuck together.</p><p>A good code drops a wrapper. Wrapper number = menu scrap × 3.</p>' +
+      '<p><input id="vending-code" class="text-input" inputmode="numeric" data-keep="code" placeholder="Code" value="' + escapeHtml(ps.code || "") + '"></p></div>' + hintBox(ps.hint) +
       '<button type="button" class="btn btn-primary" data-act="submit-vending">Enter code</button>');
   }
 
@@ -745,9 +767,8 @@
         '<input class="text-input" style="max-width:6rem" inputmode="numeric" data-keep="' + side + '" value="' + escapeHtml(ps[side] || "") + '">' +
         '<button type="button" class="btn" data-act="score-step" data-side="' + side + '" data-dir="1">+</button></div></article>';
     }
-    return puzzleShell("Scoreboard", "<p>Make every rule true.</p><ol class=\"help-list\"><li>Both scores are two-digit numbers.</li><li>Home minus guest is 6.</li><li>Home is divisible by 9.</li><li>Guest is divisible by 7.</li><li>Neither score contains a 0 or a 5.</li></ol>" +
-      '<div class="score-row">' + stepper("home", "Home") + stepper("guest", "Guests") + "</div>" + hintBox(ps.hint) +
-      '<button type="button" class="btn btn-primary" data-act="submit-score">Lock the score</button>');
+    return puzzleShell("Scoreboard", '<div class="led-board"><p>HOME and GUESTS</p><div class="score-row">' + stepper("home", "Home") + stepper("guest", "Guests") + "</div></div><ol class=\"help-list\"><li>Both scores are two-digit numbers.</li><li>Home minus guest is 6.</li><li>Home is divisible by 9.</li><li>Guest is divisible by 7.</li><li>Neither score contains a 0 or a 5.</li></ol>" +
+      hintBox(ps.hint) + '<button type="button" class="btn btn-primary" data-act="submit-score">Lock the score</button>');
   }
 
   function puzzleHoop() {
@@ -985,7 +1006,7 @@
     help: function () {
       state.modal = {
         title: "How to play",
-        html: "<ul class=\"help-list\"><li>Youngest investigates first, then the next oldest.</li><li>Next kid passes the turn.</li><li>The art room is only for the younger three.</li><li>Puzzles fill the screen. Wrong answers give a hint.</li><li>Print passes at the lobby desk. Clues keeps what you have found.</li></ul>"
+        html: "<ul class=\"help-list\"><li>Youngest investigates first, then the next oldest.</li><li>That kid walks to the gold outline and submits.</li><li>Some outlines are jokes. They do not start a puzzle.</li><li>The art room is only for the younger three.</li><li>Wrong answers give a hint. Print passes at the lobby desk.</li></ul>"
       };
       render();
     },
@@ -1092,6 +1113,11 @@
       render();
     },
     goto: function (btn) { go(btn.dataset.room); },
+    decoy: function (btn) {
+      state.modal = { title: btn.querySelector("span") ? btn.querySelector("span").textContent : "Look", html: "<p>" + escapeHtml(btn.dataset.joke || "Nothing useful here.") + "</p>" };
+      save();
+      render();
+    },
     "try-hallway": function () {
       if (!hasPass("hallway")) {
         state.modal = { title: "Hallway door", html: '<p class="led">PASS NEEDED</p><p>The screen on the door is awake. Print a white pass at the desk.</p>' };
@@ -1604,10 +1630,34 @@
     if (state.puzzle === "boss") startBossTimers();
   }
 
+  var walking = false;
+  function walkTo(btn, done) {
+    if (walking) return;
+    var token = document.querySelector('.kid-token[data-kid="' + state.turn + '"]');
+    var x = parseFloat(btn.dataset.x);
+    var y = parseFloat(btn.dataset.y);
+    if (!token || isNaN(x)) { done(); return; }
+    walking = true;
+    token.classList.add("walking");
+    token.style.left = x + "%";
+    token.style.top = y + "%";
+    if (!state.feet) state.feet = {};
+    if (!state.feet[state.room]) state.feet[state.room] = {};
+    state.feet[state.room][state.turn] = { x: x, y: y };
+    setTimeout(function () {
+      walking = false;
+      done();
+    }, 700);
+  }
+
   document.addEventListener("click", function (event) {
     var btn = event.target.closest("[data-act]");
     if (!btn || !actions[btn.dataset.act]) return;
     event.preventDefault();
+    if (btn.dataset.x && state.phase === "play" && !state.puzzle && !state.modal) {
+      walkTo(btn, function () { actions[btn.dataset.act](btn); });
+      return;
+    }
     actions[btn.dataset.act](btn);
   });
 

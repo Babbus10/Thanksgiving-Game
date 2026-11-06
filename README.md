@@ -28,3 +28,5 @@ Keyboard: Tab to move, Enter to activate a button or submit a typed answer, and 
 Lobby printer, hallway, art room, math room, cafeteria, gym, principal's office, then Principal.exe. Passes are printed in the lobby. White ink is labeled. Later colors stay unlabeled until a clue names them.
 
 The clue pocket keeps passes, colors, and code scraps.
+
+Gold outlines mark things to investigate. The kid whose turn it is walks to that spot. Some outlines are jokes and do not start a puzzle. Room pictures are original illustrated photographs made for this game and live in `assets/rooms/`.
